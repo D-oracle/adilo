@@ -8,51 +8,12 @@ export default /*#__PURE__*/ {
   },
   data() {
     return {
-      source: null,
-      playerSource: null,
-      canvas: null,
-      snapshot: null,
-      snapshotSource: null,
-      cameras: [],
       width: 800,
       height: 400,
-      recorder: null,
-      camerasEmitted: null,
-      browserScreenshareSupported: null,
-      size: null,
       mediaRecorder: null,
-      recordings: [],
       view: "video",
-      nowPlaying: null,
+      hidden: false,
     };
-  },
-  props: {
-    state: {
-        type: String,
-        default: 'Preview'
-    },
-    autoplay: {
-      type: Boolean,
-      default: true,
-    },
-    playsinline: {
-      type: Boolean,
-      default: true,
-    },
-    recorderMuted: {
-      type: Boolean,
-      default: true,
-    },
-    playerMuted: {
-      type: Boolean,
-      default: true,
-    },
-    videoTypes: {
-      type: Array,
-      default: () => {
-        return ["camera", "screen"];
-      },
-    },
   },
   mounted() {
       this.$route.params.peripheral == 'camera' ? this.recordCamera() : this.$route.params.peripheral == 'screen' ? this.startScreenshare() : this.recordAudio(); 
@@ -61,6 +22,7 @@ export default /*#__PURE__*/ {
     this.stopVideo();
   },
     methods: {
+        // Start Camera Media
         recordCamera(device) {
             let constraints = {
                 video: {
@@ -75,12 +37,15 @@ export default /*#__PURE__*/ {
             navigator.mediaDevices
               .getUserMedia(constraints)
               .then((stream) => {
+                this.$refs.preview.srcObject = stream;
+                this.$refs.preview.autoplay = true;
                 const medRecorder = new MediaRecorder(stream);
                 this.mediaRecorder = medRecorder;
               })
               .catch((error) => this.$emit("error", error));
         },
 
+        // Start Audio Media
         recordAudio() {
             navigator.mediaDevices
                 .getUserMedia({audio: true})
@@ -92,13 +57,15 @@ export default /*#__PURE__*/ {
                 .catch((error) => this.$emit("error", error));
         },
 
+        //Start screen Share
         startScreenshare() {
             try {
                 navigator.mediaDevices
                 .getDisplayMedia({audio: true, video: true})
             .then((stream) => {
-                // this.$refs.video.srcObject = stream;
-                const medRecorder = new MediaRecorder(stream);
+              this.$refs.preview.srcObject = stream;
+              this.$refs.preview.autoplay = true;
+              const medRecorder = new MediaRecorder(stream);
                 this.mediaRecorder = medRecorder;
             });
             } catch (err) {
@@ -106,46 +73,13 @@ export default /*#__PURE__*/ {
             }
         },
 
-
-        // loadSrcStream(stream) {
-        //     if ("srcObject" in this.$refs.video) {
-        //         // new browsers api
-        //         this.$refs.video.srcObject = stream;
-        //     } else {
-        //         // old broswers
-        //         this.source = window.HTMLMediaElement.srcObject(stream);
-        //     }
-        //     // Emit video start/live event
-        //     this.$refs.video.onloadedmetadata = () => {
-        //         this.$emit("video-live", stream);
-        //     };
-        //     this.$emit("started", stream);
-        // },
-
-        // async startVideoRecording() {
-        //     const stream = this.$refs.video.srcObject;
-        //     const recorder = new MediaRecorder(stream);
-        //     recorder.start();
-        //     recorder.ondataavailable = (event) => this.pushVideoData(event.data);
-        //     recorder.onstop = () => {
-        //         const blob = new Blob(this.recordings, {
-        //             type: 'video/webm'
-        //         })
-
-        //         const blobUrl = URL.createObjectURL(blob)
-
-        //         this.view = "videoPlayer";
-        //         this.$refs.videoPlayer.srcObject = null;
-        //         this.$refs.videoPlayersrc = blobUrl;
-        //     }
-        //     alert(this.recordings);
-        //     alert('recording');
-        // },
-
         async startRecording() {
+            this.$refs.preview = 
             this.mediaRecorder.start()
         },
 
+
+        // Stop Audio Recording
         async stopAudioRecording() {
             const audioChunks = [];
             this.mediaRecorder.addEventListener("dataavailable", event => {
@@ -164,6 +98,7 @@ export default /*#__PURE__*/ {
             this.mediaRecorder.stop();
         },
 
+        // Stop Video Recording
         async stopVideoRecording() {
             const chunks = [];
             this.mediaRecorder.addEventListener("dataavailable", event => {
@@ -173,41 +108,11 @@ export default /*#__PURE__*/ {
             this.mediaRecorder.addEventListener("stop", () => {
                 const blob = new Blob(chunks);
                 const videoUrl = URL.createObjectURL(blob);
-                // const audio = new Audio(audioUrl);
                 let videoElem = this.$refs.video;
                 videoElem.src = videoUrl;
-                // audio.play();
             });
 
             this.mediaRecorder.stop();
-        },
-
-        async pushVideoData(data) {
-
-            if (data.size > 0) {
-                data.name = "videoclip.webm";
-                this.recordings.push(data);
-                // this.$emit("state", 'Recording');
-            }
-        },
-
-        async stopRecording() {
-            if (this.$refs.videoPlayer !== null && this.$refs.videoPlayer.srcObject) {
-                // alert(this.recorder);
-                // this.recorder.stop()
-                this.stopStreamedVideo(this.$refs.video);
-            }
-        },
-
-        stopStreamedVideo(videoElem) {
-          let stream = videoElem.srcObject;
-          let tracks = stream.getTracks();
-          tracks.forEach((track) => {
-            track.stop();
-            this.$emit("stoppedVideo", stream);
-            this.$refs.video.srcObject = null;
-            this.source = null;
-          });
         },
     }
 }
@@ -219,23 +124,33 @@ export default /*#__PURE__*/ {
         <div class="container-fluid mt-5 mx-auto">
             <div class="row">
                 <div class="text-center">
-                <p><i class="bi bi-record2 text-danger" style="font-size:x-large"></i> Live {{state}}</p> 
+                <p><i class="bi bi-record2 text-danger" style="font-size:x-large"></i> Live Preview</p> 
                 <video
                   v-show="this.$route.params.peripheral != 'mic'"
+                  v-if="hidden"
                   ref="video"
                   id="video"
                   :width="width"
                   :height="height"
-                  muted="muted"
                   controls
+                />
+
+                <video
+                  v-show="this.$route.params.peripheral == 'screen' || this.$route.params.peripheral == 'camera'"
+                  v-if="!hidden"
+                  ref="preview"
+                  id="preview"
+                  :width="width"
+                  :height="height"
+                  muted="muted"
                 />
                 <audio v-show="this.$route.params.peripheral == 'mic'" ref="audio" id="audio" controls />
               </div> 
             </div>
             <div class="text-center mt-5">
-                <button type="button" @click="startRecording" class="btn btn-primary p-2 border rounded-pill mx-2">Start Recording</button>
-                <button type="button" v-show="this.$route.params.peripheral != 'mic'" @click="stopVideoRecording" class="btn btn-danger p-2 border rounded-pill mx-2">Stop Video Recording</button>
-                <button type="button" v-show="this.$route.params.peripheral == 'mic'" @click="stopAudioRecording" class="btn btn-danger p-2 border rounded-pill mx-2">Stop Audio Recording</button>
+                <button type="button" @click="startRecording" v-if="!hidden" v-on:click="hidden = !hidden" class="btn btn-primary p-2 border rounded-pill mx-2">Start Recording</button>
+                <button type="button" v-show="this.$route.params.peripheral != 'mic'" v-if="hidden" @click="stopVideoRecording" class="btn btn-danger p-2 border rounded-pill mx-2">Stop Video Recording</button>
+                <button type="button" v-show="this.$route.params.peripheral == 'mic'" v-if="hidden" @click="stopAudioRecording" class="btn btn-danger p-2 border rounded-pill mx-2">Stop Audio Recording</button>
             </div>
         </div>
     </section>
