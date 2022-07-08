@@ -133,7 +133,7 @@ export default {
                                             </div>
                                             <div class="form-switch form-check my-4 d-flex justify-content-between">
                                                 <label class="form-check-label" for="mic">Record mic</label>
-                                                <input class="form-check-input" v-model="mic" value="1" type="checkbox"
+                                                <input class="form-check-input" v-model="peripheral" value="mic" type="radio"
                                                     role="switch" id="mic">
                                             </div>
                                         </div>
